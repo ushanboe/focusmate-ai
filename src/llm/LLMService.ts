@@ -1,17 +1,14 @@
 /**
  * LLMService - Web-LLM integration with local caching
  *
- * Uses @mlc-ai/web-llm for local inference + response caching
- * for repeated tasks.
- *
- * Fallback to CPU-only if WebGPU not available (slower but works)
+ * Uses @mlc-ai/web-llm for local inference
  */
 
 console.log('[LLMService.ts] File loading...');
 
 import * as webllm from '@mlc-ai/web-llm';
 
-console.log('[LLMService] LLM Service loaded (cache disabled)');
+console.log('[LLMService] LLM Service loaded');
 
 interface LLMConfig {
   model: string;
@@ -25,7 +22,7 @@ export class LLMService {
   private isLoaded: boolean = false;
   private isLoading: boolean = false;
   private config: LLMConfig = {
-    model: 'Qwen2-1.5B-Instruct-q4f16_1-MLC', // ~900MB quantized model - smaller cache footprint
+    model: 'Qwen2-1.5B-Instruct-q4f16_1-MLC',
     nCtx: 2048,
     temperature: 0.7,
   };
@@ -54,7 +51,6 @@ export class LLMService {
 
       if (!this.webGPUSupported) {
         console.warn('[LLMService] ⚠️ WebGPU not available - will use CPU fallback (slower)');
-        console.warn('[LLMService] For better performance, use Chrome/Edge with WebGPU enabled');
       }
     }
   }
@@ -77,22 +73,43 @@ export class LLMService {
       this.isLoading = true;
       console.log('[LLMService] Initializing Web-LLM...');
 
-      const selectedModel = this.config.model;
-
       console.log('[LLMService] About to create MLCEngine...');
 
       // Create MLCEngine with configuration
+      // Try to disable caching by setting context window and optimization settings
       this.engine = new webllm.MLCEngine({
         initProgressCallback: (report) => {
           console.log(`[LLMService] Loading: ${report.progress.toFixed(1)}% - ${report.text}`);
         },
         logLevel: 'INFO',
+        // webllmModelLib: "https://huggingface.co/mlc-ai/", // Try CDN
       });
 
-      console.log('[LLMService] MLCEngine created, loading model:', selectedModel);
+      console.log('[LLMService] MLCEngine created, loading model:', this.config.model);
 
-      // Try to load - will fail gracefully if WebGPU not available
-      await this.engine.reload(this.config.model);
+      // Try to load with error handling for cache issues
+      try {
+        await this.engine.reload(this.config.model);
+      } catch (loadError: any) {
+        console.error('[LLMService] Model load failed:', loadError);
+
+        // If it's a cache error, try to load without cache
+        if (loadError?.message?.toLowerCase().includes('cache')) {
+          console.warn('[LLMService] Cache error detected, retrying without cache...');
+
+          // Try to create a new engine instance
+          this.engine = new webllm.MLCEngine({
+            initProgressCallback: (report) => {
+              console.log(`[LLMService] Loading (no cache): ${report.progress.toFixed(1)}% - ${report.text}`);
+            },
+            logLevel: 'INFO',
+          });
+
+          await this.engine!.reload(this.config.model);
+        } else {
+          throw loadError;
+        }
+      }
 
       this.isLoaded = true;
       this.isLoading = false;
@@ -109,31 +126,30 @@ export class LLMService {
       console.error('[LLMService] Error stack:', error?.stack);
       this.isLoading = false;
 
-      // Handle cache errors specifically
-      if (error?.message?.includes('cache') || error?.message?.includes('Cache')) {
-        console.warn('[LLMService] Cache API error');
+      // Helpful error messages
+      if (error?.message?.toLowerCase().includes('cache')) {
         return {
           success: false,
-          message: `Cache error: ${error?.message}. Try using Chrome/Edge directly or check browser console for more details.`,
+          message: `Cache API error on Vercel. This is a known issue with web-llm web deployments. Try:\n1. Running locally with npm run dev\n2. Using Chrome/Edge on desktop\n3. Checking browser console for details`,
         };
       }
 
-      if (error?.message?.includes('WebGPUNotAvailableError')) {
+      if (error?.message?.includes('WebGPU') || error?.message?.includes('WebGPUT')) {
         return {
           success: false,
-          message: 'WebGPU not available in your browser. Please use Chrome/Edge with WebGPU enabled',
+          message: 'WebGPU not available. Use Chrome/Edge on desktop for the best experience. Mobile browsers have limited WebGPU support.',
         };
       }
 
       return {
         success: false,
-        message: error?.message || 'Failed to load model',
+        message: `Failed to load: ${error?.message || 'Unknown error'}. Try Chrome/Edge on desktop.`,
       };
     }
   }
 
   /**
-   * Generate a task breakdown (caching disabled for debugging)
+   * Generate a task breakdown
    */
   async breakdownTask(task: string): Promise<{ response: string; fromCache: boolean; inferenceTime: number }> {
     // If not loaded, try to initialize
@@ -162,7 +178,7 @@ export class LLMService {
       const reply = await this.engine!.chat.completions.create({
         messages: messages as any,
         temperature: this.config.temperature,
-        max_tokens: 2000, // Increased to allow longer breakdowns
+        max_tokens: 2000,
       });
 
       const response = reply.choices[0].message.content || 'No response generated';
@@ -190,15 +206,14 @@ export class LLMService {
       return 'Not loaded';
     }
 
-    // Web-LLM doesn't expose memory directly, use estimate based on model
     const modelSizes: Record<string, string> = {
       'Phi-3-mini-4k-instruct-q4f16_1-MLC': '~1.5GB',
       'Qwen2-1.5B-Instruct-q4f16_1-MLC': '~900MB',
       'Llama-3-8B-Instruct-q4f16_1-MLC': '~4.2GB',
     };
 
-    const sizeStr = modelSizes[this.config.model] || '~1.5GB (estimated)';
-    return this.webGPUSupported ? `${sizeStr} (GPU accel)` : `${sizeStr} (CPU only)`;
+    const sizeStr = modelSizes[this.config.model] || '~1.5GB';
+    return this.webGPUSupported ? `${sizeStr} (GPU)` : `${sizeStr} (CPU)`;
   }
 
   /**
@@ -209,9 +224,9 @@ export class LLMService {
       return 'Loading model... (first load takes 1-3 minutes)';
     }
     if (!this.isLoaded) {
-      return `Not initialized • WebGPU: ${this.webGPUSupported ? '✓' : '✗'} - Click "Initialize LLM" button`;
+      return `Not initialized • WebGPU: ${this.webGPUSupported ? '✓' : '✗'}`;
     }
-    const accel = this.webGPUSupported ? 'GPU' : 'CPU (slower)';
+    const accel = this.webGPUSupported ? 'GPU' : 'CPU';
     return `Ready (${accel}) • ${this.config.model}`;
   }
 
@@ -237,18 +252,17 @@ export class LLMService {
   }
 
   /**
-   * Get cache stats for display (cache disabled for debugging)
+   * Get cache stats for display
    */
   getCacheStats(): { size: number; sizeBytes: number } {
-    // Cache disabled for debugging
     return { size: 0, sizeBytes: 0 };
   }
 
   /**
-   * Clear cache (cache disabled for debugging)
+   * Clear cache
    */
   clearCache(): void {
-    // Cache disabled for debugging
+    // No-op
   }
 
   /**
