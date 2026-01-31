@@ -11,9 +11,6 @@ console.log('[LLMService.ts] File loading...');
 
 import * as webllm from '@mlc-ai/web-llm';
 
-// Temporarily disable cache to debug mobile issue
-// import { responseCache as responseCacheImport } from './ResponseCache';
-
 console.log('[LLMService] LLM Service loaded (cache disabled)');
 
 interface LLMConfig {
@@ -80,9 +77,6 @@ export class LLMService {
       this.isLoading = true;
       console.log('[LLMService] Initializing Web-LLM...');
 
-      // Cache disabled for debugging
-      // getCache();
-
       const selectedModel = this.config.model;
 
       console.log('[LLMService] About to create MLCEngine...');
@@ -98,47 +92,7 @@ export class LLMService {
       console.log('[LLMService] MLCEngine created, loading model:', selectedModel);
 
       // Try to load - will fail gracefully if WebGPU not available
-      try {
-        await this.engine.reload(this.config.model);
-      } catch (error: any) {
-        console.error('[LLMService] WebGPU load failed:', error);
-        console.error('[LLMService] Error name:', error?.name);
-        console.error('[LLMService] Error message:', error?.message);
-
-        // Handle cache errors specifically
-        if (error?.message?.includes('cache') || error?.message?.includes('Cache')) {
-          console.warn('[LLMService] Cache API error - web-llm caching failed, but model may still load');
-          return {
-            success: false,
-            message: `Cache error: ${error?.message}. Try using Chrome/Edge directly or check browser console for more details.`,
-          };
-        }
-
-        if (error?.message?.includes('WebGPUNotAvailableError')) {
-          return {
-            success: false,
-            message: 'WebGPU not available in your browser. Please use Chrome/Edge with WebGPU enabled, or enable it at chrome://flags/#enable-unsafe-webgpu',
-          };
-        }
-
-        return {
-          success: false,
-          message: error?.message || 'Failed to load model',
-        };
-      }
-
-        if (error?.message?.includes('WebGPUNotAvailableError')) {
-          return {
-            success: false,
-            message: 'WebGPU not available in your browser. Please use Chrome/Edge with WebGPU enabled, or enable it at chrome://flags/#enable-unsafe-webgpu',
-          };
-        }
-
-        return {
-          success: false,
-          message: error?.message || 'Failed to load model',
-        };
-      }
+      await this.engine.reload(this.config.model);
 
       this.isLoaded = true;
       this.isLoading = false;
@@ -154,9 +108,26 @@ export class LLMService {
       console.error('[LLMService] Error message:', error?.message);
       console.error('[LLMService] Error stack:', error?.stack);
       this.isLoading = false;
+
+      // Handle cache errors specifically
+      if (error?.message?.includes('cache') || error?.message?.includes('Cache')) {
+        console.warn('[LLMService] Cache API error');
+        return {
+          success: false,
+          message: `Cache error: ${error?.message}. Try using Chrome/Edge directly or check browser console for more details.`,
+        };
+      }
+
+      if (error?.message?.includes('WebGPUNotAvailableError')) {
+        return {
+          success: false,
+          message: 'WebGPU not available in your browser. Please use Chrome/Edge with WebGPU enabled',
+        };
+      }
+
       return {
         success: false,
-        message: error?.message || 'Unknown error',
+        message: error?.message || 'Failed to load model',
       };
     }
   }
@@ -165,27 +136,6 @@ export class LLMService {
    * Generate a task breakdown (caching disabled for debugging)
    */
   async breakdownTask(task: string): Promise<{ response: string; fromCache: boolean; inferenceTime: number }> {
-    // Cache disabled for debugging
-    // Check cache first (with safety check for mobile)
-    /*
-    let cached = null;
-    try {
-      const cache = getCache();
-      cached = cache?.get(task);
-    } catch (e) {
-      console.error('[LLMService] Cache get error:', e);
-    }
-
-    if (cached) {
-      console.log('[LLMService] Using cached response');
-      return {
-        response: cached.response,
-        fromCache: true,
-        inferenceTime: cached.inferenceTime,
-      };
-    }
-    */
-
     // If not loaded, try to initialize
     if (!this.isLoaded) {
       console.log('[LLMService] Not loaded, initializing...');
@@ -220,16 +170,6 @@ export class LLMService {
       const inferenceTime = endTime - startTime;
 
       console.log(`[LLMService] Generated response in ${inferenceTime.toFixed(0)}ms`);
-
-      // Cache disabled for debugging
-      /*
-      try {
-        const cache = getCache();
-        cache?.set(task, response, inferenceTime);
-      } catch (e) {
-        console.error('[LLMService] Cache set error:', e);
-      }
-      */
 
       return {
         response,
@@ -271,14 +211,8 @@ export class LLMService {
     if (!this.isLoaded) {
       return `Not initialized • WebGPU: ${this.webGPUSupported ? '✓' : '✗'} - Click "Initialize LLM" button`;
     }
-    // Cache disabled for debugging
-    /*
-    const cache = getCache();
-    const cacheStats = cache?.getStats() || { size: 0, sizeBytes: 0 };
-    */
-    const cacheStats = { size: 0, sizeBytes: 0 };
     const accel = this.webGPUSupported ? 'GPU' : 'CPU (slower)';
-    return `Ready (${accel}) • ${this.config.model} • ${cacheStats.size} cached responses`;
+    return `Ready (${accel}) • ${this.config.model}`;
   }
 
   /**
@@ -308,15 +242,6 @@ export class LLMService {
   getCacheStats(): { size: number; sizeBytes: number } {
     // Cache disabled for debugging
     return { size: 0, sizeBytes: 0 };
-    /*
-    try {
-      const cache = getCache();
-      return cache?.getStats() || { size: 0, sizeBytes: 0 };
-    } catch (e) {
-      console.error('[LLMService] getCacheStats error:', e);
-      return { size: 0, sizeBytes: 0 };
-    }
-    */
   }
 
   /**
@@ -324,14 +249,6 @@ export class LLMService {
    */
   clearCache(): void {
     // Cache disabled for debugging
-    /*
-    try {
-      const cache = getCache();
-      cache?.clear();
-    } catch (e) {
-      console.error('[LLMService] clearCache error:', e);
-    }
-    */
   }
 
   /**
