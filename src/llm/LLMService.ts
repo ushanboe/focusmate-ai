@@ -102,6 +102,30 @@ export class LLMService {
         await this.engine.reload(this.config.model);
       } catch (error: any) {
         console.error('[LLMService] WebGPU load failed:', error);
+        console.error('[LLMService] Error name:', error?.name);
+        console.error('[LLMService] Error message:', error?.message);
+
+        // Handle cache errors specifically
+        if (error?.message?.includes('cache') || error?.message?.includes('Cache')) {
+          console.warn('[LLMService] Cache API error - web-llm caching failed, but model may still load');
+          return {
+            success: false,
+            message: `Cache error: ${error?.message}. Try using Chrome/Edge directly or check browser console for more details.`,
+          };
+        }
+
+        if (error?.message?.includes('WebGPUNotAvailableError')) {
+          return {
+            success: false,
+            message: 'WebGPU not available in your browser. Please use Chrome/Edge with WebGPU enabled, or enable it at chrome://flags/#enable-unsafe-webgpu',
+          };
+        }
+
+        return {
+          success: false,
+          message: error?.message || 'Failed to load model',
+        };
+      }
 
         if (error?.message?.includes('WebGPUNotAvailableError')) {
           return {
