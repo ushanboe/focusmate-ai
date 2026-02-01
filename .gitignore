@@ -10,6 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Capacitor build folders (generated locally)
+android
+ios
+
+# Local env
 *.local
 
 # Editor directories and files
