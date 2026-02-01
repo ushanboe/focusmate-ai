@@ -6,12 +6,20 @@ import { templateManager, type CustomTemplate } from './templates/TemplateManage
 import type { TaskTemplate } from './templates/TaskTemplates';
 import './App.css';
 
-type Tab = 'home' | 'library' | 'settings';
+type Tab = 'home' | 'manage' | 'ai' | 'settings';
 
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('home');
 
+  // Timer state (shared across tabs)
+  const [activeTimer, setActiveTimer] = useState<TaskTimer | null>(null);
+  const [showTimerUI, setShowTimerUI] = useState(false);
+
   // Home tab state
+  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | CustomTemplate | null>(null);
+  const [favoritesList, setFavoritesList] = useState<FavoriteBreakdown[]>([]);
+
+  // AI tab state
   const [taskInput, setTaskInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(false);
@@ -22,16 +30,11 @@ function App() {
   const [loadProgress, setLoadProgress] = useState('');
   const [cacheStats, setCacheStats] = useState({ size: 0, sizeBytes: 0 });
 
-  // Timer state
-  const [activeTimer, setActiveTimer] = useState<TaskTimer | null>(null);
-  const [showTimerUI, setShowTimerUI] = useState(false);
-
-  // Library state
-  const [favoritesList, setFavoritesList] = useState<FavoriteBreakdown[]>([]);
+  // Manage tab state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | CustomTemplate | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<TaskTemplate | CustomTemplate | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingSteps, setEditingSteps] = useState<Array<{ id: string; description: string; estimatedMinutes: number; optional: boolean }>>([]);
 
@@ -40,7 +43,7 @@ function App() {
   const [currentModel, setCurrentModel] = useState<ModelInfo | undefined>();
   const [selectedModelId, setSelectedModelId] = useState<string>('');
 
-  // Parsed steps
+  // Parsed steps (for AI tab)
   const [steps, setSteps] = useState<string[]>([]);
   const [estimatedTimes, setEstimatedTimes] = useState<number[]>([]);
 
@@ -67,9 +70,9 @@ function App() {
     };
   }, []);
 
-  // Load favorites list on mount and library tab
+  // Load favorites on mount and when Home or Manage tab is active
   useEffect(() => {
-    if (activeTab === 'library') {
+    if (activeTab === 'home' || activeTab === 'manage') {
       setFavoritesList(favoriteManager.getAll());
     }
   }, [activeTab]);
@@ -231,7 +234,8 @@ function App() {
     // Record usage
     templateManager.recordUsage(template.id);
 
-    // Switch to timer UI
+    // Set as selected template on Home tab
+    setSelectedTemplate(template);
     setShowTimerUI(true);
     setActiveTab('home');
   };
@@ -239,7 +243,7 @@ function App() {
   const handleCloneTemplate = (template: TaskTemplate) => {
     try {
       const cloned = templateManager.cloneTemplate(template.id, `${template.title} (My Version)`);
-      setSelectedTemplate(cloned);
+      setEditingTemplate(cloned);
       setEditingTitle(cloned.title);
       setEditingSteps([...cloned.steps]);
       setShowEditModal(true);
@@ -250,17 +254,17 @@ function App() {
   };
 
   const handleEditCustomTemplate = (template: CustomTemplate) => {
-    setSelectedTemplate(template);
+    setEditingTemplate(template);
     setEditingTitle(template.title);
     setEditingSteps([...template.steps]);
     setShowEditModal(true);
   };
 
   const handleSaveCustomTemplate = () => {
-    if (!selectedTemplate) return;
+    if (!editingTemplate) return;
 
     const customTemplate: CustomTemplate = {
-      ...(selectedTemplate as CustomTemplate),
+      ...(editingTemplate as CustomTemplate),
       title: editingTitle,
       steps: editingSteps,
       estimatedTotalTime: editingSteps.reduce((sum, s) => sum + s.estimatedMinutes, 0),
@@ -269,7 +273,7 @@ function App() {
 
     templateManager.saveCustomTemplate(customTemplate);
     setShowEditModal(false);
-    setSelectedTemplate(null);
+    setEditingTemplate(null);
   };
 
   const handleAddStep = () => {
@@ -309,7 +313,45 @@ function App() {
     // Update last used time
     favoriteManager.touch(favorite.id);
     setFavoritesList(favoriteManager.getAll());
-    setActiveTab('home');
+    setActiveTab('ai');
+  };
+
+  // Home tab handlers
+  const handleStartTemplateTimer = () => {
+    if (!selectedTemplate) return;
+
+    const stepDescriptions = selectedTemplate.steps.map(s => s.description);
+    const stepTimes = selectedTemplate.steps.map(s => s.estimatedMinutes);
+
+    timerManager.startTask(
+      selectedTemplate.title,
+      stepDescriptions,
+      stepTimes
+    );
+
+    templateManager.recordUsage(selectedTemplate.id);
+    setShowTimerUI(true);
+  };
+
+  const handleUseFavorite = (favorite: FavoriteBreakdown) => {
+    // Load favorite as if it's a template
+    // For now, we'll start the timer directly with the saved task
+    const parsed = parseBreakdown(favorite.response);
+    const stepDescriptions = parsed.steps;
+    const stepTimes = parsed.estimatedTimes;
+
+    timerManager.startTask(
+      favorite.task,
+      stepDescriptions,
+      stepTimes
+    );
+
+    // Update usage
+    favoriteManager.touch(favorite.id);
+    setFavoritesList(favoriteManager.getAll());
+
+    // Show timer
+    setShowTimerUI(true);
   };
 
   const handleDeleteFavorite = (id: string) => {
@@ -487,7 +529,178 @@ function App() {
   });
 
   // Render Home Tab
+  // Render Home Tab
   const renderHome = () => (
+    <div className="tab-content">
+      {/* Template Dropdown Selection */}
+      <div className="template-selector-section">
+        <label className="selector-label">Select a Task Template</label>
+        <select
+          className="template-dropdown"
+          value={selectedTemplate?.id || ''}
+          onChange={(e) => {
+            const template = templateManager.getTemplate(e.target.value);
+            setSelectedTemplate(template || null);
+          }}>
+          <option value="">-- Choose a task --</option>
+
+          {/* Group templates by category */}
+          {['household', 'personal', 'health', 'work', 'social'].map(category => {
+            const templates = templateManager.getAll().filter(t => t.category === category);
+            if (templates.length === 0) return null;
+
+            return (
+              <optgroup key={category} label={category.charAt(0).toUpperCase() + category.slice(1)}>
+                {templates.map(template => (
+                  <option key={template.id} value={template.id}>
+                    {template.title} ({template.estimatedTotalTime} min)
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
+      </div>
+
+      {/* Selected Template Display + Timer */}
+      {selectedTemplate && (
+        <div className="selected-template-display">
+          <div className="template-preview-header">
+            <h2 className="template-preview-title">{selectedTemplate.title}</h2>
+            <span className="template-time-badge">⏱️ {selectedTemplate.estimatedTotalTime} min</span>
+          </div>
+
+          <p className="template-preview-description">{selectedTemplate.description}</p>
+
+          {/* Timer Overview if running */}
+          {showTimerUI && activeTimer && (
+            <div className="timer-overview">
+              <div className="timer-main-display">
+                <div className="total-time">{timerManager.formatTime(activeTimer.totalElapsed)}</div>
+                <div className="progress-info">
+                  {activeTimer.steps.filter(s => s.isCompleted).length} / {activeTimer.steps.length} completed
+                </div>
+              </div>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${getProgressPercentage()}%` }} />
+              </div>
+              <div className="timer-actions-row">
+                <button className="ios-button success" onClick={handleCompleteTask}>
+                  ✅ Complete
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Steps Display */}
+          <div className="steps-list">
+            {selectedTemplate.steps.map((step, index) => {
+              const stepTimer = activeTimer?.steps[index];
+              const isCompleted = stepTimer?.isCompleted;
+              const isRunning = stepTimer?.isRunning;
+
+              return (
+                <div
+                  key={step.id}
+                  className={`step-card ${isCompleted ? 'completed' : ''} ${isRunning ? 'running' : ''}`}>
+                  <div className="step-main">
+                    <div className="step-left">
+                      <input
+                        type="checkbox"
+                        className="step-checkbox"
+                        checked={!!isCompleted}
+                        onChange={(e) => handleCompleteStep(index, e.target.checked)}
+                        disabled={step.optional}
+                      />
+                      {step.optional && <span className="optional-badge">Optional</span>}
+                      <span className="step-number">{index + 1}</span>
+                    </div>
+                    <div className="step-right">
+                      <p className="step-text">{step.description}</p>
+                      <div className="step-footer">
+                        <span className="step-time">⏱️ {step.estimatedMinutes} min</span>
+                        {showTimerUI && stepTimer && (
+                          <>
+                            <span className="step-elapsed">{timerManager.formatTime(stepTimer.elapsedTime)}</span>
+                            <button
+                              className={`step-toggle ${isRunning ? 'active' : ''}`}
+                              onClick={() => handleToggleStep(index)}>
+                              {isRunning ? '⏸️' : '▶️'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Start/Stop Timer Button */}
+          {!showTimerUI ? (
+            <button className="ios-button success full-width" onClick={handleStartTemplateTimer}>
+              ▶️ Start Timer
+            </button>
+          ) : (
+            <button className="ios-button danger full-width" onClick={() => {
+              timerManager.stopTask();
+              setShowTimerUI(false);
+              setActiveTimer(null);
+            }}>
+              ⏹️ Stop Timer
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Saved Tasks List */}
+      {favoritesList.length > 0 && (
+        <div className="saved-tasks-section">
+          <h2 className="section-title">Saved Tasks</h2>
+          <div className="favorites-list">
+            {favoritesList.map((favorite) => (
+              <div key={favorite.id} className="favorite-card">
+                <div className="favorite-content">
+                  <h3 className="favorite-title">{favorite.task}</h3>
+                  <p className="favorite-meta">
+                    ⏱️ {favorite.totalEstimatedTime} min • Used {favorite.usageCount} times
+                  </p>
+                  <p className="favorite-date">
+                    Saved {new Date(favorite.savedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="favorite-actions">
+                  <button
+                    className="ios-button primary small"
+                    onClick={() => handleUseFavorite(favorite)}>
+                    Use
+                  </button>
+                  <button
+                    className="ios-icon-button danger"
+                    onClick={() => handleDeleteFavorite(favorite.id)}>
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!selectedTemplate && favoritesList.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-icon">📋</div>
+          <p>No template selected</p>
+          <p className="empty-subtext">Select a task from the dropdown or go to the AI tab to create custom tasks</p>
+        </div>
+      )}
+    </div>
+  );
+
+  // Render AI Tab (was Home)
+  const renderAI = () => (
     <div className="tab-content">
       <div className="task-input-section">
         <textarea
@@ -511,7 +724,7 @@ function App() {
           <div className="loading-container">
             <div className="spinner" />
             <p className="loading-text">
-              {loadProgress || 'Downloading model (~900MB)...'}
+              {loadProgress || 'Downloading model (~2.2GB)...'}
             </p>
           </div>
         )}
@@ -624,8 +837,8 @@ function App() {
     </div>
   );
 
-  // Render Library Tab
-  const renderLibrary = () => (
+  // Render Manage Tab (was Library)
+  const renderManage = () => (
     <div className="tab-content">
       {/* Search Bar */}
       <div className="search-bar">
@@ -966,7 +1179,8 @@ function App() {
 
       <div className="ios-content">
         {activeTab === 'home' && renderHome()}
-        {activeTab === 'library' && renderLibrary()}
+        {activeTab === 'manage' && renderManage()}
+        {activeTab === 'ai' && renderAI()}
         {activeTab === 'settings' && renderSettings()}
       </div>
 
@@ -978,10 +1192,16 @@ function App() {
           <span className="tab-label">Home</span>
         </button>
         <button
-          className={`tab-item ${activeTab === 'library' ? 'active' : ''}`}
-          onClick={() => setActiveTab('library')}>
-          <span className="tab-icon">📚</span>
-          <span className="tab-label">Library</span>
+          className={`tab-item ${activeTab === 'manage' ? 'active' : ''}`}
+          onClick={() => setActiveTab('manage')}>
+          <span className="tab-icon">🔧</span>
+          <span className="tab-label">Manage</span>
+        </button>
+        <button
+          className={`tab-item ${activeTab === 'ai' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ai')}>
+          <span className="tab-icon">🤖</span>
+          <span className="tab-label">AI</span>
         </button>
         <button
           className={`tab-item ${activeTab === 'settings' ? 'active' : ''}`}
