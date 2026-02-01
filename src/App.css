@@ -1292,11 +1292,47 @@ body {
   color: #28a745;
 }
 
-.celebration-time {
+.celebration-time-stats {
   margin: 0 0 24px 0;
-  font-size: 18px;
+  font-size: 16px;
   color: #666;
+  line-height: 1.6;
+}
+
+.celebration-time-actual {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #007aff;
+}
+
+.celebration-time-estimated {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #999;
+}
+
+.celebration-time-diff {
+  margin: 8px 0 0 0;
+  font-size: 15px;
   font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.celebration-time-diff.over {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+.celebration-time-diff.under {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.celebration-time-diff.perfect {
+  background: #fff9c4;
+  color: #f57f17;
 }
 
 .celebration-confetti {

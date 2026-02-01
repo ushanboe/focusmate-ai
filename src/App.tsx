@@ -50,6 +50,8 @@ function App() {
   // Completion celebration
   const [showCelebration, setShowCelebration] = useState(false);
   const [completionTime, setCompletionTime] = useState<string>('');
+  const [estimatedTime, setEstimatedTime] = useState<string>('');
+  const [timeDiffMinutes, setTimeDiffMinutes] = useState<number>(0);
 
   // Update status periodically
   useEffect(() => {
@@ -197,12 +199,20 @@ function App() {
     console.log('[App] 🏁 Completed task returned:', completed ? 'YES' : 'NO');
 
     if (completed) {
-      const totalTime = timerManager.formatTime(completed.totalElapsed);
+      const totalTimeStr = timerManager.formatTime(completed.totalElapsed);
+      const estimatedMins = completed.totalEstimated;
+      const estimatedStr = `${estimatedMins} min${estimatedMins !== 1 ? 's' : ''}`;
 
-      setCompletionTime(totalTime);
+      // Calculate difference in minutes
+      const actualMins = Math.round(completed.totalElapsed / 60000);
+      const diff = actualMins - estimatedMins;
+
+      setCompletionTime(totalTimeStr);
+      setEstimatedTime(estimatedStr);
+      setTimeDiffMinutes(diff);
       setShowCelebration(true);
 
-      console.log('[App] 🏁 Celebration triggered:', totalTime);
+      console.log('[App] 🏁 Celebration triggered - Actual:', totalTimeStr, 'Estimated:', estimatedStr, 'Diff:', diff, 'min');
       console.log('[App] 🏁 Timer UI will close after celebration');
 
       setActiveTimer(completed);
@@ -225,6 +235,9 @@ function App() {
     setShowCelebration(false);
     setSelectedTemplate(null);
     setCompletionTime('');
+    setEstimatedTime('');
+    setTimeDiffMinutes(0);
+    setActiveTimer(null);
   };
 
   const handleSaveFavorite = () => {
@@ -729,7 +742,18 @@ function App() {
           <div className="celebration-content" onClick={(e) => e.stopPropagation()}>
             <div className="celebration-emoji">🎉</div>
             <h2 className="celebration-title">Task Completed!</h2>
-            <p className="celebration-time">Total time: {completionTime}</p>
+            <div className="celebration-time-stats">
+              <p className="celebration-time-actual">Time taken: {completionTime}</p>
+              <p className="celebration-time-estimated">Estimated: {estimatedTime}</p>
+              {timeDiffMinutes !== 0 && (
+                <p className={`celebration-time-diff ${timeDiffMinutes > 0 ? 'over' : 'under'}`}>
+                  {timeDiffMinutes > 0 ? `📈 ${timeDiffMinutes} min over` : `📉 ${Math.abs(timeDiffMinutes)} min under`} estimate
+                </p>
+              )}
+              {timeDiffMinutes === 0 && (
+                <p className="celebration-time-diff perfect">💯 Spot on! Perfect estimate!</p>
+              )}
+            </div>
             <div className="celebration-confetti">
               <div className="confetti confetti-1"></div>
               <div className="confetti confetti-2"></div>
