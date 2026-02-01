@@ -598,32 +598,40 @@ function App() {
 
           <p className="template-preview-description">{selectedTemplate.description}</p>
 
-          {/* Timer Overview - MOVED HERE (under dropdown) */}
-          {showTimerUI && activeTimer && (
-            <div className="timer-overview">
-              <div className="timer-main-display">
-                <div className="total-time">{timerManager.formatTime(activeTimer.totalElapsed)}</div>
-                <div className="progress-info">
-                  {activeTimer.steps.filter(s => s.isCompleted).length} / {activeTimer.steps.length} completed
+          {/* Timer Overview - Always shows state */}
+          <div className="timer-overview">
+            {showTimerUI && activeTimer ? (
+              // Timer RUNNING state
+              <>
+                <div className="timer-main-display">
+                  <div className="total-time">{timerManager.formatTime(activeTimer.totalElapsed)}</div>
+                  <div className="progress-info">
+                    {activeTimer.steps.filter(s => s.isCompleted).length} / {activeTimer.steps.length} completed
+                  </div>
                 </div>
-              </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${getProgressPercentage()}%` }} />
-              </div>
-              <div className="timer-actions-row">
-                <button className="ios-button success" onClick={handleCompleteTask}>
-                  ✅ Complete
-                </button>
-                <button className="ios-button danger" onClick={() => {
-                  timerManager.stopTask();
-                  setShowTimerUI(false);
-                  setActiveTimer(null);
-                }}>
-                  ⏹️ Stop
-                </button>
-              </div>
-            </div>
-          )}
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${getProgressPercentage()}%` }} />
+                </div>
+                <div className="timer-actions-row">
+                  <button className="ios-button success" onClick={handleCompleteTask}>
+                    ✅ Complete
+                  </button>
+                  <button className="ios-button danger" onClick={() => {
+                    timerManager.stopTask();
+                    setShowTimerUI(false);
+                    setActiveTimer(null);
+                  }}>
+                    ⏹️ Stop
+                  </button>
+                </div>
+              </>
+            ) : (
+              // Timer NOT RUNNING state - show Start button
+              <button className="ios-button success timer-start-btn" onClick={handleStartTemplateTimer}>
+                ▶️ Start Timer
+              </button>
+            )}
+          </div>
 
           {/* Steps Display */}
           <div className="steps-list">
@@ -669,21 +677,6 @@ function App() {
               );
             })}
           </div>
-
-          {/* Start/Stop Timer Button */}
-          {!showTimerUI ? (
-            <button className="ios-button success full-width" onClick={handleStartTemplateTimer}>
-              ▶️ Start Timer
-            </button>
-          ) : (
-            <button className="ios-button danger full-width" onClick={() => {
-              timerManager.stopTask();
-              setShowTimerUI(false);
-              setActiveTimer(null);
-            }}>
-              ⏹️ Stop Timer
-            </button>
-          )}
         </div>
       )}
 
