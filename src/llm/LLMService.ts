@@ -37,20 +37,20 @@ export const AVAILABLE_MODELS: ModelInfo[] = [
     description: 'Medium size, decent quality. Good balance.',
   },
   {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama-3.2 3B',
-    size: '~2.2GB',
-    params: '3B',
-    minRam: '4GB',
-    description: 'Best quality, larger size. Works on most modern phones.',
+    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    name: 'Llama-3.2 1B',
+    size: '~800MB',
+    params: '1.0B',
+    minRam: '2GB',
+    description: 'Lightweight Llama 3.2 with good quality. Works on most phones.',
   },
   {
-    id: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
-    name: 'Phi-3-mini 4k',
-    size: '~3.7GB',
-    params: '3.8B',
-    minRam: '6GB',
-    description: 'Highest quality but largest. Requires high-end phone.',
+    id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
+    name: 'SmallerLM2 1.7B',
+    size: '~1.1GB',
+    params: '1.7B',
+    minRam: '3GB',
+    description: 'Small but capable model. Good balance of quality and size.',
   },
 ];
 
@@ -66,7 +66,7 @@ export class LLMService {
   private isLoaded: boolean = false;
   private isLoading: boolean = false;
   private config: LLMConfig = {
-    model: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    model: 'Qwen2-1.5B-Instruct-q4f16_1-MLC',
     nCtx: 2048,
     temperature: 0.7,
   };
@@ -251,9 +251,10 @@ export class LLMService {
     }
 
     const modelSizes: Record<string, string> = {
-      'Phi-3-mini-4k-instruct-q4f16_1-MLC': '~1.5GB',
+      'TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC': '~700MB',
       'Qwen2-1.5B-Instruct-q4f16_1-MLC': '~900MB',
-      'Llama-3-8B-Instruct-q4f16_1-MLC': '~4.2GB',
+      'Llama-3.2-1B-Instruct-q4f16_1-MLC': '~800MB',
+      'SmolLM2-1.7B-Instruct-q4f16_1-MLC': '~1.1GB',
     };
 
     const sizeStr = modelSizes[this.config.model] || '~1.5GB';
