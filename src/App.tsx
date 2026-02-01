@@ -562,11 +562,15 @@ function App() {
         <h3>Model Info</h3>
         <div className="setting-item">
           <span className="setting-label">Model</span>
-          <span className="setting-value">Qwen2-1.5B-Instruct</span>
+          <span className="setting-value">Llama-3.2-3B-Instruct</span>
         </div>
         <div className="setting-item">
           <span className="setting-label">Size</span>
-          <span className="setting-value">~900MB</span>
+          <span className="setting-value">~2.2GB</span>
+        </div>
+        <div className="setting-item">
+          <span className="setting-label">Parameters</span>
+          <span className="setting-value">3B</span>
         </div>
         <div className="setting-item">
           <span className="setting-label">Quantization</span>

@@ -22,7 +22,7 @@ export class LLMService {
   private isLoaded: boolean = false;
   private isLoading: boolean = false;
   private config: LLMConfig = {
-    model: 'Qwen2-1.5B-Instruct-q4f16_1-MLC',
+    model: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
     nCtx: 2048,
     temperature: 0.7,
   };
