@@ -545,12 +545,6 @@ body {
 
 .search-bar {
   margin-bottom: 20px;
-  width: 100%;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 0 16px;
-  box-sizing: border-box;
 }
 
 .search-input {
@@ -709,13 +703,10 @@ body {
 .category-tabs {
   display: flex;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
 }
 
 .category-tabs::-webkit-scrollbar {
@@ -732,6 +723,7 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .category-tab.active {
@@ -742,25 +734,18 @@ body {
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  margin: 20px 0 12px 0;
-  padding: 0 16px;
+  margin: 20px 0 12px;
   color: #000;
 }
 
 .library-section {
   padding-bottom: 20px;
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
 }
 
 .templates-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  width: 100%;
-  max-width: 568px;
-  margin: 0 auto;
   padding: 0;
 }
 
@@ -769,8 +754,6 @@ body {
   border-radius: 12px;
   padding: 16px;
   border-left: 4px solid #007aff;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .template-header {
