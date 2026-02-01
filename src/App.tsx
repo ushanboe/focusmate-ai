@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { llmService, type ModelInfo } from './llm/LLMService';
-import { timerManager, type StepTimer, type TaskTimer } from './timer/TimerManager';
+import { timerManager, type TaskTimer } from './timer/TimerManager';
 import { favoriteManager, type FavoriteBreakdown } from './favorites/FavoriteManager';
 import { templateManager, type CustomTemplate } from './templates/TemplateManager';
 import type { TaskTemplate } from './templates/TaskTemplates';
@@ -46,6 +46,10 @@ function App() {
   // Parsed steps (for AI tab)
   const [steps, setSteps] = useState<string[]>([]);
   const [estimatedTimes, setEstimatedTimes] = useState<number[]>([]);
+
+  // Completion celebration
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [completionTime, setCompletionTime] = useState<string>('');
 
   // Update status periodically
   useEffect(() => {
@@ -193,17 +197,34 @@ function App() {
     console.log('[App] 🏁 Completed task returned:', completed ? 'YES' : 'NO');
 
     if (completed) {
-      const completedSteps = completed.steps.filter((s: StepTimer) => s.isCompleted).length;
-      const message = `Task completed in ${timerManager.formatTime(completed.totalElapsed)}!\n${completedSteps}/${completed.steps.length} steps done.`;
+      const totalTime = timerManager.formatTime(completed.totalElapsed);
 
-      alert(message);
-      console.log('[App] 🏁 Alert shown:', message);
+      setCompletionTime(totalTime);
+      setShowCelebration(true);
 
-      // Close timer UI after completion
+      console.log('[App] 🏁 Celebration triggered:', totalTime);
+      console.log('[App] 🏁 Timer UI will close after celebration');
+
+      setActiveTimer(completed);
+      setShowTimerUI(false);
+    }
+  };
+
+  const handleResetHome = () => {
+    if (confirm('Reset this task? This will stop the timer and clear your progress.')) {
+      timerManager.stopTask();
       setShowTimerUI(false);
       setActiveTimer(null);
-      console.log('[App] 🏁 Timer UI closed');
+      setSelectedTemplate(null);
+      setShowCelebration(false);
+      setCompletionTime('');
     }
+  };
+
+  const handleCloseCelebration = () => {
+    setShowCelebration(false);
+    setSelectedTemplate(null);
+    setCompletionTime('');
   };
 
   const handleSaveFavorite = () => {
@@ -567,12 +588,17 @@ function App() {
         <div className="selected-template-display">
           <div className="template-preview-header">
             <h2 className="template-preview-title">{selectedTemplate.title}</h2>
-            <span className="template-time-badge">⏱️ {selectedTemplate.estimatedTotalTime} min</span>
+            <div className="template-header-actions">
+              <span className="template-time-badge">⏱️ {selectedTemplate.estimatedTotalTime} min</span>
+              <button className="reset-button" onClick={handleResetHome}>
+                🔄 Reset
+              </button>
+            </div>
           </div>
 
           <p className="template-preview-description">{selectedTemplate.description}</p>
 
-          {/* Timer Overview if running */}
+          {/* Timer Overview - MOVED HERE (under dropdown) */}
           {showTimerUI && activeTimer && (
             <div className="timer-overview">
               <div className="timer-main-display">
@@ -587,6 +613,13 @@ function App() {
               <div className="timer-actions-row">
                 <button className="ios-button success" onClick={handleCompleteTask}>
                   ✅ Complete
+                </button>
+                <button className="ios-button danger" onClick={() => {
+                  timerManager.stopTask();
+                  setShowTimerUI(false);
+                  setActiveTimer(null);
+                }}>
+                  ⏹️ Stop
                 </button>
               </div>
             </div>
@@ -657,7 +690,7 @@ function App() {
       {/* Saved Tasks List */}
       {favoritesList.length > 0 && (
         <div className="saved-tasks-section">
-          <h2 className="section-title">Saved Tasks</h2>
+          <h2 className="section-title">My Saved Tasks</h2>
           <div className="favorites-list">
             {favoritesList.map((favorite) => (
               <div key={favorite.id} className="favorite-card">
@@ -694,6 +727,28 @@ function App() {
           <div className="empty-icon">📋</div>
           <p>No template selected</p>
           <p className="empty-subtext">Select a task from the dropdown or go to the AI tab to create custom tasks</p>
+        </div>
+      )}
+
+      {/* Celebration Modal */}
+      {showCelebration && (
+        <div className="celebration-overlay" onClick={handleCloseCelebration}>
+          <div className="celebration-content" onClick={(e) => e.stopPropagation()}>
+            <div className="celebration-emoji">🎉</div>
+            <h2 className="celebration-title">Task Completed!</h2>
+            <p className="celebration-time">Total time: {completionTime}</p>
+            <div className="celebration-confetti">
+              <div className="confetti confetti-1"></div>
+              <div className="confetti confetti-2"></div>
+              <div className="confetti confetti-3"></div>
+              <div className="confetti confetti-4"></div>
+              <div className="confetti confetti-5"></div>
+              <div className="confetti confetti-6"></div>
+            </div>
+            <button className="ios-button primary" onClick={handleCloseCelebration}>
+              Great Job! 👏
+            </button>
+          </div>
         </div>
       )}
     </div>

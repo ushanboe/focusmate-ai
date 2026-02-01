@@ -116,6 +116,13 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 12px;
+}
+
+.template-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .template-preview-title {
@@ -139,6 +146,24 @@ body {
   font-size: 15px;
   color: #666;
   line-height: 1.4;
+}
+
+/* Reset Button */
+.reset-button {
+  background: #ff3b30;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.reset-button:active {
+  opacity: 0.7;
 }
 
 /* Saved Tasks Section */
@@ -372,8 +397,14 @@ body {
 }
 
 .step-card.completed {
-  opacity: 0.5;
-  background: #e5f1ff;
+  background: #d4edda;
+  border-left-color: #28a745;
+  opacity: 1;
+}
+
+.step-card.completed .step-text {
+  text-decoration: line-through;
+  color: #155724;
 }
 
 .step-main {
@@ -1188,6 +1219,166 @@ body {
   width: 100%;
 }
 
+/* Celebration Modal */
+.celebration-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.celebration-content {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 32px;
+  text-align: center;
+  position: relative;
+  animation: scaleIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  max-width: 90%;
+  width: 320px;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.celebration-emoji {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.celebration-title {
+  margin: 0 0 12px 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.celebration-time {
+  margin: 0 0 24px 0;
+  font-size: 18px;
+  color: #666;
+  font-weight: 600;
+}
+
+.celebration-confetti {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: confettiFall 3s ease-out forwards;
+}
+
+.confetti-1 {
+  background: #ff6b6b;
+  left: 20%;
+  top: -20px;
+  animation-delay: 0s;
+  --rotation: 45deg;
+  transform: rotate(45deg);
+}
+
+.confetti-2 {
+  background: #4ecdc4;
+  left: 40%;
+  top: -20px;
+  animation-delay: 0.1s;
+  --rotation: -45deg;
+  transform: rotate(-45deg);
+}
+
+.confetti-3 {
+  background: #ffe66d;
+  left: 60%;
+  top: -20px;
+  animation-delay: 0.2s;
+  --rotation: 30deg;
+  transform: rotate(30deg);
+}
+
+.confetti-4 {
+  background: #95e1d3;
+  left: 80%;
+  top: -20px;
+  animation-delay: 0.3s;
+  --rotation: -30deg;
+  transform: rotate(-30deg);
+}
+
+.confetti-5 {
+  background: #f38181;
+  left: 30%;
+  top: -20px;
+  animation-delay: 0.15s;
+  --rotation: 60deg;
+  transform: rotate(60deg);
+}
+
+.confetti-6 {
+  background: #aa96da;
+  left: 70%;
+  top: -20px;
+  animation-delay: 0.25s;
+  --rotation: -60deg;
+  transform: rotate(-60deg);
+}
+
+@keyframes confettiFall {
+  0% {
+    top: -20px;
+    transform: rotate(var(--rotation, 0deg));
+    opacity: 1;
+  }
+  100% {
+    top: 400px;
+    transform: rotate(calc(var(--rotation, 0deg) + 720deg));
+    opacity: 0;
+  }
+}
+
 /* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
   body,
@@ -1223,7 +1414,8 @@ body {
   }
 
   .step-card.completed {
-    background: #0a1633;
+    background: #1a3d23;
+    border-left-color: #28a745;
   }
 
   .timer-overview {
@@ -1382,6 +1574,19 @@ body {
 
   .modal-footer {
     border-top-color: #38383a;
+  }
+
+  /* Celebration Dark Mode */
+  .celebration-content {
+    background: #1c1c1e;
+  }
+
+  .celebration-title {
+    color: #34c759;
+  }
+
+  .celebration-time {
+    color: #a1a1a1;
   }
 }
 
