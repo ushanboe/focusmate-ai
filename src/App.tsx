@@ -910,7 +910,7 @@ function App() {
 
   // Render Manage Tab (was Library)
   const renderManage = () => (
-    <div className="tab-content">
+    <div className="tab-content tab-content-manage">
       {/* Search Bar */}
       <div className="search-bar">
         <input
