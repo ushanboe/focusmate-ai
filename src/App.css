@@ -743,6 +743,7 @@ body {
 
 .templates-grid {
   display: grid;
+  grid-template-columns: 1fr;
   gap: 16px;
   padding: 0 16px;
 }
