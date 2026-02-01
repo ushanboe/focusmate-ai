@@ -397,8 +397,16 @@ body {
 }
 
 .step-card.running {
-  background: #fff3e0;
+  background: #e65100;
   border-left: 4px solid #ff9800;
+}
+
+.step-card.running .step-text {
+  color: #fff;
+}
+
+.step-card.running .step-number {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .step-card.completed {
