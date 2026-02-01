@@ -545,6 +545,8 @@ body {
 
 .search-bar {
   margin-bottom: 20px;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 .search-input {
@@ -703,7 +705,7 @@ body {
 .category-tabs {
   display: flex;
   gap: 8px;
-  padding: 8px 0;
+  padding: 8px 20px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -734,19 +736,21 @@ body {
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  margin: 20px 0 12px;
+  margin: 20px 20px 12px 20px;
   color: #000;
 }
 
 .library-section {
   padding-bottom: 20px;
+  padding: 0 20px;
 }
 
 .templates-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  padding: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .template-card {
@@ -754,6 +758,8 @@ body {
   border-radius: 12px;
   padding: 16px;
   border-left: 4px solid #007aff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .template-header {
