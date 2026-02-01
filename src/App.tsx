@@ -664,7 +664,6 @@ function App() {
                         className="step-checkbox"
                         checked={!!isCompleted}
                         onChange={(e) => handleCompleteStep(index, e.target.checked)}
-                        disabled={step.optional}
                       />
                       {step.optional && <span className="optional-badge">Optional</span>}
                       <span className="step-number">{index + 1}</span>
