@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { llmService, type ModelInfo } from './llm/LLMService';
 import { timerManager, type StepTimer, type TaskTimer } from './timer/TimerManager';
 import { favoriteManager, type FavoriteBreakdown } from './favorites/FavoriteManager';
+import { templateManager, type CustomTemplate } from './templates/TemplateManager';
+import type { TaskTemplate } from './templates/TaskTemplates';
 import './App.css';
 
 type Tab = 'home' | 'library' | 'settings';
@@ -27,6 +29,11 @@ function App() {
   // Library state
   const [favoritesList, setFavoritesList] = useState<FavoriteBreakdown[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedTemplate, setSelectedTemplate] = useState<TaskTemplate | CustomTemplate | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [editingSteps, setEditingSteps] = useState<Array<{ id: string; description: string; estimatedMinutes: number; optional: boolean }>>([]);
 
   // Settings state
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
@@ -209,6 +216,82 @@ function App() {
     alert('Saved to library!');
   };
 
+  // Template handlers
+  const handleUseTemplate = (template: TaskTemplate | CustomTemplate) => {
+    // Convert template steps to arrays for timer
+    const stepDescriptions = template.steps.map(s => s.description);
+    const stepTimes = template.steps.map(s => s.estimatedMinutes);
+
+    timerManager.startTask(
+      template.title,
+      stepDescriptions,
+      stepTimes
+    );
+
+    // Record usage
+    templateManager.recordUsage(template.id);
+
+    // Switch to timer UI
+    setShowTimerUI(true);
+    setActiveTab('home');
+  };
+
+  const handleCloneTemplate = (template: TaskTemplate) => {
+    try {
+      const cloned = templateManager.cloneTemplate(template.id, `${template.title} (My Version)`);
+      setSelectedTemplate(cloned);
+      setEditingTitle(cloned.title);
+      setEditingSteps([...cloned.steps]);
+      setShowEditModal(true);
+    } catch (e) {
+      console.error('[App] Failed to clone template:', e);
+      alert('Failed to clone template');
+    }
+  };
+
+  const handleEditCustomTemplate = (template: CustomTemplate) => {
+    setSelectedTemplate(template);
+    setEditingTitle(template.title);
+    setEditingSteps([...template.steps]);
+    setShowEditModal(true);
+  };
+
+  const handleSaveCustomTemplate = () => {
+    if (!selectedTemplate) return;
+
+    const customTemplate: CustomTemplate = {
+      ...(selectedTemplate as CustomTemplate),
+      title: editingTitle,
+      steps: editingSteps,
+      estimatedTotalTime: editingSteps.reduce((sum, s) => sum + s.estimatedMinutes, 0),
+      updatedAt: Date.now(),
+    };
+
+    templateManager.saveCustomTemplate(customTemplate);
+    setShowEditModal(false);
+    setSelectedTemplate(null);
+  };
+
+  const handleAddStep = () => {
+    const newStep = {
+      id: `step_${Date.now()}`,
+      description: '',
+      estimatedMinutes: 5,
+      optional: false,
+    };
+    setEditingSteps([...editingSteps, newStep]);
+  };
+
+  const handleUpdateStep = (stepId: string, updates: Partial<typeof editingSteps[0]>) => {
+    setEditingSteps(editingSteps.map(step =>
+      step.id === stepId ? { ...step, ...updates } : step
+    ));
+  };
+
+  const handleRemoveStep = (stepId: string) => {
+    setEditingSteps(editingSteps.filter(step => step.id !== stepId));
+  };
+
   const handleSelectFavorite = (favorite: FavoriteBreakdown) => {
     setTaskInput(favorite.task);
     const parsed = parseBreakdown(favorite.response);
@@ -384,6 +467,25 @@ function App() {
     !searchQuery || f.task.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Template categories
+  const CATEGORIES = [
+    { id: 'all', label: 'All', emoji: '📚' },
+    { id: 'household', label: 'Household', emoji: '🏠' },
+    { id: 'personal', label: 'Personal', emoji: '👤' },
+    { id: 'health', label: 'Health', emoji: '💊' },
+    { id: 'work', label: 'Work', emoji: '💼' },
+    { id: 'social', label: 'Social', emoji: '💬' },
+  ];
+
+  // Get filtered templates based on category and search
+  const filteredTemplates = templateManager.getAll().filter((template) => {
+    const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
+    const matchesSearch = !searchQuery ||
+      template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   // Render Home Tab
   const renderHome = () => (
     <div className="tab-content">
@@ -525,51 +627,226 @@ function App() {
   // Render Library Tab
   const renderLibrary = () => (
     <div className="tab-content">
+      {/* Search Bar */}
       <div className="search-bar">
         <input
           className="search-input"
           type="text"
-          placeholder="Search saved tasks..."
+          placeholder="Search templates..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
       </div>
 
-      <div className="favorites-list">
-        {filteredFavorites.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">⭐</div>
-            <p>No saved tasks yet</p>
-            <p className="empty-subtext">Save your breakdowns for quick access</p>
-          </div>
-        ) : (
-          filteredFavorites.map((favorite) => (
-            <div key={favorite.id} className="favorite-card">
-              <div className="favorite-content">
-                <h3 className="favorite-title">{favorite.task}</h3>
-                <p className="favorite-meta">
-                  ⏱️ {favorite.totalEstimatedTime} min • Used {favorite.usageCount} times
-                </p>
-                <p className="favorite-date">
-                  Saved {new Date(favorite.savedAt).toLocaleDateString()}
-                </p>
+      {/* Category Tabs */}
+      <div className="category-tabs">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            className={`category-tab ${selectedCategory === cat.id ? 'active' : ''}`}
+            onClick={() => setSelectedCategory(cat.id)}>
+            {cat.emoji} {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Templates Section */}
+      {(selectedCategory === 'all' || selectedCategory !== 'all') && (
+        <div className="library-section">
+          <h2 className="section-title">
+            {selectedCategory === 'all' ? 'All Tasks' : CATEGORIES.find(c => c.id === selectedCategory)?.label || 'Tasks'}
+          </h2>
+
+          {filteredTemplates.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <p>No tasks found</p>
+              <p className="empty-subtext">Try a different category or search term</p>
+            </div>
+          ) : (
+            <div className="templates-grid">
+              {filteredTemplates.map((template) => (
+                <div key={template.id} className="template-card">
+                  <div className="template-header">
+                    <h3 className="template-title">{template.title}</h3>
+                    <span className={`template-difficulty difficulty-${template.difficulty}`}>
+                      {template.difficulty}
+                    </span>
+                  </div>
+
+                  <p className="template-description">{template.description}</p>
+
+                  <div className="template-meta">
+                    <span className="template-time">⏱️ {template.estimatedTotalTime} min</span>
+                    <span className="template-steps">📝 {template.steps.length} steps</span>
+                  </div>
+
+                  {template.tips && template.tips.length > 0 && (
+                    <div className="template-tips">
+                      <strong>💡 Tips:</strong>
+                      <ul>
+                        {template.tips.slice(0, 2).map((tip, idx) => (
+                          <li key={idx}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {template.accessibilityNotes && (
+                    <div className="template-accessibility">
+                      <strong>♿ Accessibility:</strong> {template.accessibilityNotes}
+                    </div>
+                  )}
+
+                  <div className="template-actions">
+                    <button
+                      className="ios-button primary small"
+                      onClick={() => handleUseTemplate(template)}>
+                      Use Template
+                    </button>
+
+                    {('isUserCustomized' in template) ? (
+                      <button
+                        className="ios-button secondary small"
+                        onClick={() => handleEditCustomTemplate(template as CustomTemplate)}>
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        className="ios-button secondary small"
+                        onClick={() => handleCloneTemplate(template)}>
+                        Clone & Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Favorites Section (only when 'all' is selected) */}
+      {selectedCategory === 'all' && filteredFavorites.length > 0 && (
+        <div className="library-section">
+          <h2 className="section-title">My Favorites</h2>
+          <div className="favorites-list">
+            {filteredFavorites.map((favorite) => (
+              <div key={favorite.id} className="favorite-card">
+                <div className="favorite-content">
+                  <h3 className="favorite-title">{favorite.task}</h3>
+                  <p className="favorite-meta">
+                    ⏱️ {favorite.totalEstimatedTime} min • Used {favorite.usageCount} times
+                  </p>
+                  <p className="favorite-date">
+                    Saved {new Date(favorite.savedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="favorite-actions">
+                  <button
+                    className="ios-button secondary"
+                    onClick={() => handleSelectFavorite(favorite)}>
+                    Use
+                  </button>
+                  <button
+                    className="ios-icon-button danger"
+                    onClick={() => handleDeleteFavorite(favorite.id)}>
+                    🗑️
+                  </button>
+                </div>
               </div>
-              <div className="favorite-actions">
-                <button
-                  className="ios-button secondary"
-                  onClick={() => handleSelectFavorite(favorite)}>
-                  Use
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Template</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="edit-field">
+                <label>Title</label>
+                <input
+                  className="edit-input"
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  placeholder="Task title..."
+                />
+              </div>
+
+              <div className="edit-field">
+                <label>Steps</label>
+                {editingSteps.map((step, idx) => (
+                  <div key={step.id} className="edit-step">
+                    <div className="edit-step-number">{idx + 1}</div>
+
+                    <div className="edit-step-content">
+                      <input
+                        className="edit-input"
+                        type="text"
+                        value={step.description}
+                        onChange={(e) => handleUpdateStep(step.id, { description: e.target.value })}
+                        placeholder={`Step ${idx + 1}...`}
+                      />
+
+                      <div className="edit-step-meta">
+                        <input
+                          className="edit-time-input"
+                          type="number"
+                          value={step.estimatedMinutes}
+                          onChange={(e) => handleUpdateStep(step.id, { estimatedMinutes: parseInt(e.target.value) || 1 })}
+                          min="1"
+                        />
+                        <span>min</span>
+
+                        <label className="edit-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={step.optional}
+                            onChange={(e) => handleUpdateStep(step.id, { optional: e.target.checked })}
+                          />
+                          Optional
+                        </label>
+
+                        <button
+                          className="edit-delete-btn"
+                          onClick={() => handleRemoveStep(step.id)}
+                          disabled={editingSteps.length <= 1}>
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button className="ios-button secondary full-width" onClick={handleAddStep}>
+                  + Add Step
                 </button>
-                <button
-                  className="ios-icon-button danger"
-                  onClick={() => handleDeleteFavorite(favorite.id)}>
-                  🗑️
-                </button>
+              </div>
+
+              <div className="edit-summary">
+                <strong>Total Time:</strong> {editingSteps.reduce((sum, s) => sum + s.estimatedMinutes, 0)} min
               </div>
             </div>
-          ))
-        )}
-      </div>
+
+            <div className="modal-footer">
+              <button className="ios-button secondary" onClick={() => setShowEditModal(false)}>
+                Cancel
+              </button>
+              <button className="ios-button primary" onClick={handleSaveCustomTemplate}>
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
