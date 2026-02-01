@@ -10,6 +10,50 @@ import * as webllm from '@mlc-ai/web-llm';
 
 console.log('[LLMService] LLM Service loaded');
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  size: string;
+  params: string;
+  minRam: string;
+  description: string;
+}
+
+export const AVAILABLE_MODELS: ModelInfo[] = [
+  {
+    id: 'TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC',
+    name: 'TinyLlama 1.1B',
+    size: '~700MB',
+    params: '1.1B',
+    minRam: '2GB',
+    description: 'Smallest, fastest, works on all phones. Lower quality.',
+  },
+  {
+    id: 'Qwen2-1.5B-Instruct-q4f16_1-MLC',
+    name: 'Qwen2 1.5B',
+    size: '~1.6GB',
+    params: '1.5B',
+    minRam: '3GB',
+    description: 'Medium size, decent quality. Good balance.',
+  },
+  {
+    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    name: 'Llama-3.2 3B',
+    size: '~2.2GB',
+    params: '3B',
+    minRam: '4GB',
+    description: 'Best quality, larger size. Works on most modern phones.',
+  },
+  {
+    id: 'Phi-3-mini-4k-instruct-q4f16_1-MLC',
+    name: 'Phi-3-mini 4k',
+    size: '~3.7GB',
+    params: '3.8B',
+    minRam: '6GB',
+    description: 'Highest quality but largest. Requires high-end phone.',
+  },
+];
+
 interface LLMConfig {
   model: string;
   nCtx: number;
@@ -306,6 +350,40 @@ Example format:
 Task: ${task}
 
 Breakdown:`;
+  }
+
+  /**
+   * Get current model
+   */
+  getCurrentModel(): ModelInfo | undefined {
+    return AVAILABLE_MODELS.find(m => m.id === this.config.model);
+  }
+
+  /**
+   * Set model (must be from AVAILABLE_MODELS)
+   * Note: You must reinitialize after changing model
+   */
+  setModel(modelId: string): boolean {
+    const model = AVAILABLE_MODELS.find(m => m.id === modelId);
+    if (!model) {
+      console.warn(`[LLMService] Model not found: ${modelId}`);
+      return false;
+    }
+
+    if (this.isLoaded) {
+      console.warn('[LLMService] Model loaded, please reinitialize after changing model');
+    }
+
+    this.config.model = modelId;
+    console.log(`[LLMService] Model changed to: ${model.name}`);
+    return true;
+  }
+
+  /**
+   * Get available models
+   */
+  getAvailableModels(): ModelInfo[] {
+    return AVAILABLE_MODELS;
   }
 }
 

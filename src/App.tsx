@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { llmService } from './llm/LLMService';
+import { llmService, type ModelInfo } from './llm/LLMService';
 import { timerManager, type StepTimer, type TaskTimer } from './timer/TimerManager';
 import { favoriteManager, type FavoriteBreakdown } from './favorites/FavoriteManager';
 import './App.css';
@@ -29,6 +29,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Settings state
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [currentModel, setCurrentModel] = useState<ModelInfo | undefined>();
+  const [selectedModelId, setSelectedModelId] = useState<string>('');
 
   // Parsed steps
   const [steps, setSteps] = useState<string[]>([]);
@@ -63,6 +66,13 @@ function App() {
       setFavoritesList(favoriteManager.getAll());
     }
   }, [activeTab]);
+
+  // Load available models on mount
+  useEffect(() => {
+    setAvailableModels(llmService.getAvailableModels());
+    setCurrentModel(llmService.getCurrentModel());
+    setSelectedModelId(llmService.getCurrentModel()?.id || '');
+  }, []);
 
   // Parse breakdown when it changes
   useEffect(() => {
@@ -238,6 +248,34 @@ function App() {
     } else {
       alert('No cached responses to clear');
     }
+  };
+
+  const handleModelChange = (newModelId: string) => {
+    setSelectedModelId(newModelId);
+
+    if (initialized) {
+      // Model is loaded, will show confirm buttons
+    } else {
+      // Model not loaded yet, change immediately
+      const success = llmService.setModel(newModelId);
+      if (success) {
+        setCurrentModel(llmService.getCurrentModel());
+        alert(`Model changed to ${llmService.getCurrentModel()?.name}. Click Initialize to load it.`);
+      }
+    }
+  };
+
+  const confirmModelChange = () => {
+    const success = llmService.setModel(selectedModelId);
+    if (success) {
+      setCurrentModel(llmService.getCurrentModel());
+      setInitialized(false);
+      alert(`Model changed to ${llmService.getCurrentModel()?.name}. Click Initialize to load the new model.`);
+    }
+  };
+
+  const cancelModelChange = () => {
+    setSelectedModelId(llmService.getCurrentModel()?.id || '');
   };
 
   const parseBreakdown = (response: string): { steps: string[]; estimatedTimes: number[] } => {
@@ -539,7 +577,63 @@ function App() {
   const renderSettings = () => (
     <div className="tab-content">
       <div className="settings-group">
-        <h3>Model Status</h3>
+        <h3>Model Selection</h3>
+        <div className="setting-description">
+          Choose a model based on your phone's RAM. Larger models give better quality but require more memory.
+        </div>
+        <div className="model-selector">
+          {availableModels.map((model) => (
+            <div
+              key={model.id}
+              className={`model-option ${selectedModelId === model.id ? 'selected' : ''}`}
+              onClick={() => handleModelChange(model.id)}
+            >
+              <div className="model-header">
+                <input
+                  type="radio"
+                  name="model"
+                  checked={selectedModelId === model.id}
+                  onChange={() => handleModelChange(model.id)}
+                  className="model-radio"
+                />
+                <div className="model-name">
+                  <strong>{model.name}</strong>
+                  <span className="model-params">{model.params}</span>
+                </div>
+                {selectedModelId === model.id && <span className="model-check">✓</span>}
+              </div>
+              <div className="model-details">
+                <div className="model-detail">
+                  <span className="detail-label">Size:</span>
+                  <span className="detail-value">{model.size}</span>
+                </div>
+                <div className="model-detail">
+                  <span className="detail-label">Min RAM:</span>
+                  <span className="detail-value">{model.minRam}</span>
+                </div>
+              </div>
+              <p className="model-description-text">{model.description}</p>
+            </div>
+          ))}
+        </div>
+        {initialized && selectedModelId !== llmService.getCurrentModel()?.id && (
+          <div className="model-change-actions">
+            <button className="ios-button primary" onClick={confirmModelChange}>
+              Change & Reinitialize
+            </button>
+            <button className="ios-button secondary" onClick={cancelModelChange}>
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="settings-group">
+        <h3>Current Model Status</h3>
+        <div className="setting-item">
+          <span className="setting-label">Model</span>
+          <span className="setting-value">{currentModel?.name || 'Loading...'}</span>
+        </div>
         <div className="setting-item">
           <span className="setting-label">Status</span>
           <span className="setting-value">{status}</span>
@@ -556,26 +650,6 @@ function App() {
             <span className="setting-value">{cacheStats.size} responses</span>
           </div>
         )}
-      </div>
-
-      <div className="settings-group">
-        <h3>Model Info</h3>
-        <div className="setting-item">
-          <span className="setting-label">Model</span>
-          <span className="setting-value">Llama-3.2-3B-Instruct</span>
-        </div>
-        <div className="setting-item">
-          <span className="setting-label">Size</span>
-          <span className="setting-value">~2.2GB</span>
-        </div>
-        <div className="setting-item">
-          <span className="setting-label">Parameters</span>
-          <span className="setting-value">3B</span>
-        </div>
-        <div className="setting-item">
-          <span className="setting-label">Quantization</span>
-          <span className="setting-value">Q4 (4-bit)</span>
-        </div>
       </div>
 
       <div className="settings-group">
