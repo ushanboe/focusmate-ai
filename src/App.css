@@ -765,28 +765,27 @@ body {
 }
 
 .template-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 8px;
 }
 
 .template-title {
+  display: inline-block;
   margin: 0;
   font-size: 17px;
   font-weight: 600;
   color: #000;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .template-difficulty {
+  display: inline-block;
   font-size: 12px;
   font-weight: 600;
   padding: 3px 8px;
   border-radius: 10px;
   text-transform: uppercase;
+  margin-left: 8px;
 }
 
 .difficulty-easy {
